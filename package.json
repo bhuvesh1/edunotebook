@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "SWC_NATIVE_BINDING_CACHE=/tmp/swc-cache next dev",
-    "build": "SWC_NATIVE_BINDING_CACHE=/tmp/swc-cache next build",
+    "build": "bash extract-sims.sh && SWC_NATIVE_BINDING_CACHE=/tmp/swc-cache next build",
     "start": "next start",
     "lint": "eslint",
     "db:push": "PRISMA_SCHEMA_ENGINE_BINARY=./node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x PRISMA_QUERY_ENGINE_LIBRARY=./node_modules/.prisma/client/libquery_engine-debian-openssl-3.0.x.so.node prisma db push",
