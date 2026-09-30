@@ -9,6 +9,7 @@
 import { Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useGLTF, useProgress } from "@react-three/drei";
+import { StudioEnvironment, StudioPerf, StudioPost, StudioShadows } from "./StudioEffects";
 
 function UploadedModel({ url }: { url: string }) {
   const { scene } = useGLTF(url);
@@ -48,13 +49,18 @@ export function UploadedModelViewer({ url }: { url: string }) {
           shadow-mapSize={[1024, 1024]}
         />
         <directionalLight position={[-6, 4, -6]} intensity={0.35} />
+        <StudioEnvironment />
         <Suspense fallback={null}>
           <UploadedModel url={url} />
         </Suspense>
+        <StudioShadows />
+        <StudioPerf />
+        <StudioPost />
         <OrbitControls
           makeDefault
           target={[0, 1, 0]}
           enableDamping
+          dampingFactor={0.06}
           maxPolarAngle={Math.PI * 0.55}
           minDistance={1.5}
           maxDistance={30}
