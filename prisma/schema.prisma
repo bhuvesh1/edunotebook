@@ -1,0 +1,297 @@
+// EduNotebook — Phase 1 data model.
+//
+// Local dev uses SQLite (DATABASE_URL="file:./dev.db") for zero-setup iteration.
+// PRODUCTION uses PostgreSQL — keep this schema portable:
+// no postgres-only (or sqlite-only) column types, no native enums, plain
+// DateTime/String/Int fields only. Switching provider = change
+// `provider` + DATABASE_URL, then `prisma db push`.
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Subject {
+  id          Int        @id @default(autoincrement())
+  slug        String     @unique // e.g. "physics" — from taxonomy.json
+  name        String // e.g. "Physics"
+  order       Int        @default(0) // admin-controlled ordering (Phase 6+)
+  enabled     Boolean    @default(true) // admin can hide a subject (Phase 6+)
+  description String? // admin-managed short description (Phase 6+)
+  icon        String? // emoji icon picked by admin (Phase 6+)
+  createdAt   DateTime   @default(now())
+  categories  Category[]
+}
+
+model Category {
+  id            Int           @id @default(autoincrement())
+  name          String
+  slug          String
+  subjectId     Int
+  subject       Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  order         Int           @default(0) // admin-controlled ordering (Phase 6+)
+  description   String? // admin-managed description (Phase 6+)
+  subcategories Subcategory[]
+
+  @@unique([subjectId, slug])
+}
+
+model Subcategory {
+  id         Int      @id @default(autoincrement())
+  name       String
+  slug       String
+  categoryId Int
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  topics     Topic[]
+
+  @@unique([categoryId, slug])
+}
+
+model Topic {
+  id            Int         @id @default(autoincrement())
+  name          String
+  slug          String // unique within subject; URL: /topic/[subject]/[topicSlug]
+  description   String? // admin-managed short description (Phase 6+)
+  status        String      @default("published") // draft | published
+  simKey        String? // 3D override: null=auto via registry, "none"=force no 3D, else a registry SimKey
+  subcategoryId Int
+  subcategory   Subcategory @relation(fields: [subcategoryId], references: [id], onDelete: Cascade)
+  blogPost      BlogPost?
+  model3D       Model3D?
+  aiJobs        AiJob[]
+  study         TopicStudy?
+
+  @@unique([subcategoryId, slug])
+}
+
+// AI-generated study content per topic (theory, worked example, equations,
+// quiz) — written in simple language a 10-year-old can follow, generated
+// once and cached here. Null = not yet generated → page falls back to
+// sim-specific or generic content.
+model TopicStudy {
+  id        Int      @id @default(autoincrement())
+  topicId   Int      @unique
+  topic     Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  theory    String
+  example   String
+  equations String   // JSON array of strings (English)
+  quiz      String   // JSON array of {q, a} (English)
+  theoryHi    String? // Hindi theory
+  exampleHi   String? // Hindi worked example
+  equationsHi String? // JSON array of strings (Hindi)
+  quizHi      String? // JSON array of {q, a} (Hindi)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BlogPost {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique // "<subjectSlug>-<topicSlug>" — unique across all subjects
+  title       String
+  titleHi     String? // Hindi blog title (independent 300-500 word Hindi blog)
+  excerpt     String?
+  excerptHi   String? // Hindi excerpt
+  summary     String?
+  contentHtml String? // assembled article body (excerpt + equations + detail)
+  contentHtmlHi String? // assembled Hindi article body (independent 300-500 word blog)
+  subjectSlug String? // taxonomy subject slug, for filtering
+  topicSlug   String? // taxonomy topic slug (unique within subject)
+  status      String   @default("published") // published | draft
+  source      String   @default("auto") // auto | manual — how the post was created
+  topicId     Int?     @unique
+  topic       Topic?   @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Full user model for Phase 5 (Auth.js v5). Public site stays login-free;
+// only /ask and /panel require a session (see proxy.ts).
+model User {
+  id            Int       @id @default(autoincrement())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String? // null for OAuth-only accounts (none yet)
+  role          String    @default("user") // "user" | "admin" (admin panel = Phase 6)
+  isBanned      Boolean   @default(false) // admin-suspended account (Phase 6+)
+  quizSubjects  String? // JSON array of subject slugs — daily-quiz subject preference
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  bookmarks     Bookmark[]
+  quizAttempts  QuizAttempt[]
+  suggestions   Suggestion[]
+  readingEvents ReadingEvent[]
+  askedQuestions AskedQuestion[]
+  aiJobs        AiJob[]
+}
+
+// ---- Auth.js (next-auth v5) Prisma adapter tables ----
+model Account {
+  id                String  @id @default(cuid())
+  userId            Int
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       Int
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---- Phase 5 user features ----
+model Bookmark {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String // "topic" | "blog"
+  refSlug   String // topic: "<subjectSlug>/<topicSlug>"; blog: "<blogSlug>"
+  createdAt DateTime @default(now())
+
+  @@unique([userId, kind, refSlug])
+}
+
+model QuizAttempt {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      String // YYYY-MM-DD (quiz seed day)
+  subjects  String // JSON array of subject slugs used
+  score     Int
+  total     Int
+  createdAt DateTime @default(now())
+}
+
+model Suggestion {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text      String
+  status    String   @default("new") // new | reviewed | done
+  createdAt DateTime @default(now())
+}
+
+model ReadingEvent {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectSlug String
+  topicSlug   String? // null for blog reads
+  kind        String // "topic" | "blog"
+  createdAt   DateTime @default(now())
+}
+
+model AskedQuestion {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectSlug String?
+  question    String
+  answer      String?
+  answeredAt  DateTime?
+  createdAt   DateTime @default(now())
+}
+
+// ---- Production finisher additions (Phase 7). Portable types only
+// (String/DateTime/Int) — no native enums, works on SQLite dev + Postgres prod.
+
+// Who did what, when — written by lib/audit.ts from admin server actions.
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  actorId    Int?
+  actorEmail String?
+  action     String   // e.g. "topic.update", "user.ban", "ai-job.approve"
+  entityType String?  // e.g. "Topic"
+  entityId   String?  // stringified id
+  detail     String?  // JSON string with before/after or params
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+// 3D Studio: uploaded models (GLB/glTF preferred, OBJ/FBX accepted).
+// Files live under public/uploads/models/<id>/ — served statically.
+model Model3D {
+  id        Int      @id @default(autoincrement())
+  name      String
+  filePath  String   // public-relative URL, e.g. /uploads/models/3/model.glb
+  fileType  String   // glb | gltf | obj | fbx
+  sizeBytes Int      @default(0)
+  topicId   Int?     @unique // mapped topic; null = unmapped library asset
+  topic     Topic?   @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  status    String   @default("ready") // ready | processing | failed
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// AI Content Studio: generation jobs. NOTHING auto-publishes —
+// output must pass review → approve → publish, each a separate admin step.
+model AiJob {
+  id          Int      @id @default(autoincrement())
+  kind        String   // topic-content | blog | quiz | translation
+  subjectSlug String?
+  topicId     Int?
+  topic       Topic?   @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  input       String?  // JSON: prompt parameters
+  status      String   @default("queued") // queued | running | review | approved | published | failed
+  output      String?  // generated text (may be JSON string)
+  provider    String   @default("gemini")
+  model       String?
+  error       String?
+  createdById Int?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+}
+
+// SEO Health Center: detected issues with View / Fix / Ignore / Rescan.
+model SeoIssue {
+  id         Int      @id @default(autoincrement())
+  kind       String   // orphan | duplicate | broken-link | missing-meta
+  entityType String?  // topic | blog | subject
+  ref        String?  // slug or id reference
+  url        String?
+  detail     String?
+  status     String   @default("open") // open | ignored | fixed
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([status])
+  @@index([kind])
+}
