@@ -6,14 +6,39 @@
 
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useMemo } from "react";
+import { Box3, Vector3 } from "three";
+import type { Mesh } from "three";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, useGLTF, useProgress } from "@react-three/drei";
 import { StudioEnvironment, StudioPerf, StudioPost, StudioShadows } from "./StudioEffects";
 
+// Clone (never mutate the drei cache), enable shadows, then normalise: scale to
+// ~3 units tall/wide and rest the model on y=0 so shadows, camera and orbit
+// target work for any uploaded model regardless of its native size/origin.
 function UploadedModel({ url }: { url: string }) {
   const { scene } = useGLTF(url);
-  return <primitive object={scene} />;
+  const { object, scale } = useMemo(() => {
+    const clone = scene.clone(true);
+    clone.traverse((o) => {
+      const m = o as Mesh;
+      if (m.isMesh) {
+        m.castShadow = true;
+        m.receiveShadow = true;
+      }
+    });
+    const box = new Box3().setFromObject(clone);
+    const size = box.getSize(new Vector3());
+    const center = box.getCenter(new Vector3());
+    const max = Math.max(size.x, size.y, size.z);
+    clone.position.set(-center.x, -box.min.y, -center.z);
+    return { object: clone, scale: max > 0 ? 3 / max : 1 };
+  }, [scene]);
+  return (
+    <group scale={scale}>
+      <primitive object={object} />
+    </group>
+  );
 }
 
 function Loader() {
@@ -52,13 +77,14 @@ export function UploadedModelViewer({ url }: { url: string }) {
         <StudioEnvironment />
         <Suspense fallback={null}>
           <UploadedModel url={url} />
+          {/* Inside Suspense so the one-shot shadow bake runs AFTER the model loads */}
+          <StudioShadows y={0.005} size={12} />
         </Suspense>
-        <StudioShadows />
         <StudioPerf />
         <StudioPost />
         <OrbitControls
           makeDefault
-          target={[0, 1, 0]}
+          target={[0, 1.2, 0]}
           enableDamping
           dampingFactor={0.06}
           maxPolarAngle={Math.PI * 0.55}

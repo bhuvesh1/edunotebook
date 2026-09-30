@@ -35,9 +35,13 @@ export function StudioShadows({ y = 0.01, size = 30 }: { y?: number; size?: numb
   );
 }
 
+// Weak devices (<=4 cores, typical low-end phones) skip MSAA to stay smooth.
+const LOW_END =
+  typeof navigator !== "undefined" && (navigator.hardwareConcurrency ?? 8) <= 4;
+
 export function StudioPost() {
   return (
-    <EffectComposer multisampling={4}>
+    <EffectComposer multisampling={LOW_END ? 0 : 4}>
       <Bloom intensity={0.22} luminanceThreshold={0.85} luminanceSmoothing={0.2} mipmapBlur />
       <Vignette eskil={false} offset={0.2} darkness={0.55} />
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
