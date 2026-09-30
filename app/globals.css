@@ -1,0 +1,256 @@
+@import "tailwindcss";
+
+/* ---- EduNotebook copybook theme (pure CSS, no images) ---- */
+:root {
+  --paper: #fffdf5; /* cream/white paper */
+  --rule: #cfdcf0; /* light blue-grey ruled lines */
+  --margin-line: #f1919e; /* red/pink copybook margin */
+}
+
+body {
+  background-color: var(--paper);
+  /* Red/pink margin line ~72px from the left edge + horizontal ruled lines every ~32px */
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 70px,
+      var(--margin-line) 70px,
+      var(--margin-line) 72px,
+      transparent 72px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 31px,
+      var(--rule) 31px,
+      var(--rule) 32px
+    );
+  background-attachment: fixed;
+  color: #23272f;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+/* Handwriting-friendly heading stack */
+h1,
+h2,
+h3,
+.font-hand {
+  font-family: "Segoe Print", "Comic Sans MS", "Chalkboard SE", "Bradley Hand",
+    cursive;
+}
+
+/* Ruled underline for notebook headings */
+.notebook-underline {
+  border-bottom: 2px solid var(--margin-line);
+}
+
+/* Subject nav strip along the notebook border */
+.subject-nav {
+  border-top: 2px solid var(--rule);
+  border-bottom: 2px solid var(--rule);
+  background: rgba(255, 253, 245, 0.96);
+}
+
+.subject-nav a {
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.subject-nav a:hover {
+  background-color: #eef3fb;
+}
+
+.subject-nav a[aria-current="page"] {
+  background-color: #23272f;
+  color: #fffdf5;
+}
+
+/* Topic links look like handwritten margin notes */
+.topic-link:hover {
+  background-color: #fff3c4;
+  text-decoration: underline;
+  text-decoration-color: var(--margin-line);
+  text-underline-offset: 3px;
+}
+
+/* ---- Phase 2: subject hero animations (transform/opacity only, phone-safe) ---- */
+@keyframes hero-kenburns {
+  from {
+    transform: scale(1) translate(0, 0);
+  }
+  to {
+    transform: scale(1.12) translate(-1.5%, 1%);
+  }
+}
+@keyframes hero-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes hero-spin-rev {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+@keyframes hero-float {
+  0%,
+  100% {
+    transform: translateY(-6px);
+  }
+  50% {
+    transform: translateY(6px);
+  }
+}
+@keyframes hero-drift {
+  from {
+    transform: translateX(-30%);
+  }
+  to {
+    transform: translateX(115%);
+  }
+}
+@keyframes hero-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+@keyframes hero-shimmer {
+  from {
+    transform: translateX(-140%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(460%) skewX(-18deg);
+  }
+}
+@keyframes hero-bubble {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(-95px) scale(0.55);
+    opacity: 0;
+  }
+}
+@keyframes hero-wave-slide {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-60px);
+  }
+}
+@keyframes hero-scan {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(320%);
+    opacity: 0;
+  }
+}
+@keyframes hero-twinkle {
+  0%,
+  100% {
+    transform: scale(0.55) rotate(0deg);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(1.15) rotate(25deg);
+    opacity: 1;
+  }
+}
+@keyframes hero-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes hero-drip {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(44px);
+    opacity: 0;
+  }
+}
+@keyframes hero-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+@keyframes hero-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-hero],
+  [data-hero] * {
+    animation: none !important;
+  }
+}
+
+/* Blog article body — rendered from generated HTML (lib/blogs/generator.ts). */
+.blog-body h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+}
+.blog-body p {
+  margin-bottom: 1rem;
+  line-height: 1.75;
+  color: var(--color-slate-800, #1e293b);
+}
+.blog-body p.lead {
+  font-size: 1.125rem;
+  color: var(--color-slate-600, #475569);
+  border-left: 3px solid var(--margin-line);
+  padding-left: 1rem;
+}
+.blog-body ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.blog-body li {
+  margin-bottom: 0.5rem;
+  line-height: 1.7;
+}
+.blog-body code {
+  font-family: ui-monospace, monospace;
+  background: rgba(15, 23, 42, 0.06);
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+  font-size: 0.95em;
+}

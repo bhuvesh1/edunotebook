@@ -1,0 +1,58 @@
+# Reverse proxy in front of the EduNotebook Docker app.
+# Copy to /etc/nginx/sites-available/edunotebook and symlink into
+# sites-enabled, then `nginx -t && systemctl reload nginx`.
+
+upstream edunotebook_app {
+    server app:3000;   # or 127.0.0.1:3000 if nginx runs on the host
+}
+
+server {
+    listen 80;
+    # server_name edunotebook.example.com;
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+    gzip_min_length 1024;
+
+    # 3D model ZIP uploads can be large.
+    client_max_body_size 100m;
+
+    # Next.js build assets: fingerprinted, safe to cache long.
+    location /_next/static/ {
+        proxy_pass http://edunotebook_app;
+        proxy_cache_valid 200 365d;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # Uploaded files (models, images): cache a week.
+    location /uploads/ {
+        proxy_pass http://edunotebook_app;
+        proxy_cache_valid 200 7d;
+        add_header Cache-Control "public, max-age=604800";
+    }
+
+    location / {
+        proxy_pass http://edunotebook_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 120s;
+    }
+
+    # Security headers
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+}
+
+# ---- TLS via certbot (uncomment after DNS points at the VPS) ----
+# 1. sudo certbot --nginx -d edunotebook.example.com
+#    (certbot rewrites this file: adds :443 server block + redirect)
+# 2. Renewal is automatic: certbot installs a systemd timer
+#    (`systemctl status certbot.timer`) that renews before expiry.
+# 3. After TLS is live, add HSTS inside the :443 block:
+#    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
